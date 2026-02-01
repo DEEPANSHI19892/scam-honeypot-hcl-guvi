@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+*.log
+.DS_Store
+test.py
+test_multiturn.py
+test_extraction.py
+check_models.py
