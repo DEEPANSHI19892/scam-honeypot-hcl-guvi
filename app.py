@@ -104,7 +104,7 @@ def generate_agent_response(message_text: str, history: List[Message]) -> str:
 - Ask SPECIFIC questions: "Which account number?" "What's the exact process?"
 - Request their contact details: "Can I call you?" "What's your employee ID?"
 - Ask where to send money if mentioned
-- Express urgency: "I'll do it right now, just tell me how!""""
+- Express urgency: "I'll do it right now, just tell me how!"""
     
     else:
         # Later stage: Push for final details
