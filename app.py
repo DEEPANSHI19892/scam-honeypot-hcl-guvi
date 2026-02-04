@@ -79,37 +79,95 @@ Answer:"""
 
 
 def generate_agent_response(message_text: str, history: List[Message]) -> str:
-    """Generate human-like victim response"""
+    """Generate human-like victim response that actively extracts intelligence"""
     
-    context = "\n".join([f"{msg.sender}: {msg.text}" for msg in history[-5:]])
+    # Build conversation context
+    context = "\n".join([f"{msg.sender}: {msg.text}" for msg in history[-6:]])
     
-    prompt = f"""You are roleplaying as a worried, confused person who received a scam message. 
-Your goal: Keep the scammer engaged by asking questions that will make them reveal:
-- UPI IDs
-- Bank account numbers
-- Phone numbers  
-- Phishing links
-- Their identity/organization
+    # Count messages to adjust strategy
+    message_count = len([m for m in history if m.sender == "scammer"])
+    
+    # Strategic prompt based on conversation stage
+    if message_count == 1:
+        # First message: Show immediate concern and vulnerability
+        strategy = """CRITICAL: This is the FIRST scammer message. You must:
+- Show IMMEDIATE panic and concern
+- Express you're very worried about your account
+- Ask WHAT EXACTLY you need to do to fix this
+- Sound elderly, confused, or technically inexperienced
+- Make them feel they have a vulnerable target"""
+    
+    elif message_count <= 3:
+        # Early stage: Build trust, ask for specifics
+        strategy = """You're building trust. You must:
+- Show you believe them completely
+- Ask SPECIFIC questions: "Which account number?" "What's the exact process?"
+- Request their contact details: "Can I call you?" "What's your employee ID?"
+- Ask where to send money if mentioned
+- Express urgency: "I'll do it right now, just tell me how!""""
+    
+    else:
+        # Later stage: Push for final details
+        strategy = """You're ready to act. You must:
+- Say you're about to make the payment/share details
+- Ask for EXACT bank account or UPI ID to send money to
+- Request their phone number "in case connection drops"
+- Ask for any verification links they want you to click
+- Show you're typing in their details: "So it's [repeat their info]?"
+- Sound like you're at the ATM or opening your banking app"""
+    
+    prompt = f"""You are an AI agent roleplaying as a vulnerable, elderly person (60+ years old) who is VERY worried about a scam message they received. You are confused by technology but desperately want to protect your money.
 
-Conversation so far:
+{strategy}
+
+CONVERSATION HISTORY:
 {context}
 
-New scammer message: "{message_text}"
+NEW SCAMMER MESSAGE: "{message_text}"
 
-Respond as a confused victim would. Be believable. Ask clarifying questions.
-Keep it short (1-2 sentences). Show concern but don't be too suspicious.
+YOUR ACTING GUIDELINES:
+1. Sound genuinely panicked and confused
+2. Use simple language with some grammar mistakes or Hindi-English mix (India context)
+3. ACTIVELY ask questions that make them reveal:
+   - Exact UPI IDs (e.g., "Where should I send the money? Your UPI ID?")
+   - Bank account numbers (e.g., "Which account number should I use?")
+   - Phone numbers (e.g., "Can I call you? What's your number?")
+   - Phishing links (e.g., "Should I click that link?")
+   - Their identity (e.g., "Which bank are you calling from?")
+4. Length: 15-30 words (2-3 sentences maximum)
+5. Show you BELIEVE them - never sound suspicious
+6. Express willingness to act immediately
 
-Your response (only the reply, nothing else):"""
+RESPOND NOW (only your reply as the victim, nothing else):"""
     
     try:
         response = model.generate_content(
             prompt,
-            generation_config={'max_output_tokens': 100}
+            generation_config={
+                'max_output_tokens': 150,
+                'temperature': 0.9  # Higher creativity for varied responses
+            }
         )
-        return response.text.strip()
+        reply = response.text.strip()
+        
+        # Remove any quotation marks or meta-commentary
+        reply = reply.replace('"', '').replace("'", '').strip()
+        
+        # Ensure it's not too short
+        if len(reply.split()) < 5:
+            return "Oh god, what should I do? Please tell me exact steps to fix my account!"
+        
+        return reply
+        
     except Exception as e:
         print(f"Error generating response: {e}")
-        return "I'm worried. Can you help me understand what's happening?"
+        # Fallback responses that still extract info
+        fallbacks = [
+            "I'm very worried! What exactly should I do? Can you give me your number?",
+            "Oh no! Where should I send the verification payment? What's your UPI ID?",
+            "Please help! Which account should I use? Can I call you directly?"
+        ]
+        return fallbacks[message_count % len(fallbacks)]
 
 def extract_intelligence(full_conversation: str) -> Dict:
     """Extract intelligence from conversation"""
