@@ -1,5 +1,4 @@
-
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import google.generativeai as genai
@@ -47,38 +46,42 @@ class HoneypotResponse(BaseModel):
 def detect_scam(message_text: str, history: List[Message]) -> bool:
     """Detect if message is a scam using Gemini"""
     
-    context = "\n".join([f"{msg.sender}: {msg.text}" for msg in history[-5:]])
+    # Quick keyword check first
+    scam_keywords = ['urgent', 'blocked', 'verify', 'suspended', 'account', 
+                     'upi', 'send money', 'click here', 'expire', 'prize', 
+                     'winner', 'lottery', 'otp', 'password']
     
-    prompt = f"""You are a scam detection system. Analyze this message carefully.
-
-Previous context:
-{context}
-
-New message: "{message_text}"
-
-Common scam indicators:
-- Urgency (account blocked, verify now, act immediately)
-- Requests for money/UPI/bank details
-- Threats of account suspension
-- Too-good-to-be-true offers
-- Impersonation of banks/government
-- Phishing links
-
-Respond with ONLY one word: "SCAM" or "SAFE"
-"""
+    text_lower = message_text.lower()
+    keyword_count = sum(1 for keyword in scam_keywords if keyword in text_lower)
     
+    # If 2+ keywords, likely scam
+    if keyword_count >= 2:
+        return True
+    
+    # Otherwise use AI (but with timeout protection)
     try:
-        response = model.generate_content(prompt)
+        prompt = f"""Is this a scam message? Reply only "SCAM" or "SAFE".
+
+Message: "{message_text}"
+
+Answer:"""
+        
+        response = model.generate_content(
+            prompt,
+            generation_config={'max_output_tokens': 10}
+        )
+        
         result = response.text.strip().upper()
         return "SCAM" in result
     except Exception as e:
-        print(f"Error in scam detection: {e}")
-        return False
+        # If AI fails, use keyword heuristic
+        return keyword_count >= 1
+
 
 def generate_agent_response(message_text: str, history: List[Message]) -> str:
     """Generate human-like victim response"""
     
-    context = "\n".join([f"{msg.sender}: {msg.text}" for msg in history])
+    context = "\n".join([f"{msg.sender}: {msg.text}" for msg in history[-5:]])
     
     prompt = f"""You are roleplaying as a worried, confused person who received a scam message. 
 Your goal: Keep the scammer engaged by asking questions that will make them reveal:
@@ -96,16 +99,13 @@ New scammer message: "{message_text}"
 Respond as a confused victim would. Be believable. Ask clarifying questions.
 Keep it short (1-2 sentences). Show concern but don't be too suspicious.
 
-Examples:
-- "Oh no! What should I do?"
-- "Can you help me? I don't understand."
-- "What information do you need from me?"
-- "Is this really from my bank?"
-
 Your response (only the reply, nothing else):"""
     
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config={'max_output_tokens': 100}
+        )
         return response.text.strip()
     except Exception as e:
         print(f"Error generating response: {e}")
@@ -125,7 +125,7 @@ def extract_intelligence(full_conversation: str) -> Dict:
     # Extract UPI IDs (format: something@something)
     upi_pattern = r'\b[\w.-]+@[\w.-]+\b'
     upi_matches = re.findall(upi_pattern, full_conversation)
-    intel["upiIds"] = [u for u in upi_matches if '@' in u and not '@gmail' in u.lower() and not '@yahoo' in u.lower()]
+    intel["upiIds"] = [u for u in upi_matches if '@' in u and '@gmail' not in u.lower() and '@yahoo' not in u.lower()]
     
     # Extract phone numbers (10 digits, Indian format)
     phone_pattern = r'\b[6-9]\d{9}\b'
@@ -189,21 +189,53 @@ def root():
         "powered_by": "Google Gemini AI"
     }
 
-@app.post("/honeypot", response_model=HoneypotResponse)
+@app.get("/health")
+def health_check():
+    """Quick health check - wakes up the service"""
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+@app.post("/honeypot")
 async def honeypot_endpoint(
-    request: HoneypotRequest,
-    x_api_key: str = Header(...)
+    request: Request,
+    x_api_key: str = Header(None)
 ):
     """Main honeypot endpoint"""
     
     # Verify API key
     expected_key = os.environ.get("API_SECRET_KEY")
     if x_api_key != expected_key:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+        return {"status": "error", "reply": "Invalid API key"}
     
-    session_id = request.sessionId
-    message = request.message
-    history = request.conversationHistory
+    try:
+        # Parse request body
+        data = await request.json()
+        
+        # Extract fields with defaults
+        session_id = data.get('sessionId', 'unknown')
+        message_data = data.get('message', {})
+        message_text = message_data.get('text', '')
+        message_sender = message_data.get('sender', 'scammer')
+        message_timestamp = message_data.get('timestamp', datetime.utcnow().isoformat() + "Z")
+        history_data = data.get('conversationHistory', [])
+        
+        # Convert to Message objects
+        message = Message(
+            sender=message_sender,
+            text=message_text,
+            timestamp=message_timestamp
+        )
+        
+        history = []
+        for h in history_data:
+            if isinstance(h, dict):
+                history.append(Message(
+                    sender=h.get('sender', 'unknown'),
+                    text=h.get('text', ''),
+                    timestamp=h.get('timestamp', datetime.utcnow().isoformat() + "Z")
+                ))
+    
+    except Exception as e:
+        return {"status": "error", "reply": f"Invalid request format: {str(e)}"}
     
     # Initialize or get session
     if session_id not in sessions:
@@ -226,10 +258,7 @@ async def honeypot_endpoint(
         session_data['scam_detected'] = is_scam
         
         if not is_scam:
-            return HoneypotResponse(
-                status="success",
-                reply="Thank you for your message."
-            )
+            return {"status": "success", "reply": "Thank you for your message."}
     
     # Generate agent response
     agent_reply = generate_agent_response(message.text, session_data['history'])
@@ -246,13 +275,10 @@ async def honeypot_endpoint(
     if session_data['message_count'] >= 8 and session_data['scam_detected']:
         send_final_callback(session_id, session_data)
     
-    return HoneypotResponse(
-        status="success",
-        reply=agent_reply
-    )
+    return {"status": "success", "reply": agent_reply}
 
 @app.get("/session/{session_id}")
-def get_session(session_id: str, x_api_key: str = Header(...)):
+def get_session(session_id: str, x_api_key: str = Header(None)):
     """Debug endpoint to view session"""
     expected_key = os.environ.get("API_SECRET_KEY")
     if x_api_key != expected_key:
@@ -264,6 +290,5 @@ def get_session(session_id: str, x_api_key: str = Header(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
