@@ -202,40 +202,57 @@ async def honeypot_endpoint(
     """Main honeypot endpoint"""
     
     # Verify API key
-    expected_key = os.environ.get("API_SECRET_KEY")
-    if x_api_key != expected_key:
-        return {"status": "error", "reply": "Invalid API key"}
+    if not x_api_key:
+    return {"status": "error", "reply": "API key required in x-api-key header"}
+if x_api_key != expected_key:
+    return {"status": "error", "reply": "Invalid API key"}
+
     
-    try:
-        # Parse request body
-        data = await request.json()
-        
-        # Extract fields with defaults
-        session_id = data.get('sessionId', 'unknown')
-        message_data = data.get('message', {})
-        message_text = message_data.get('text', '')
-        message_sender = message_data.get('sender', 'scammer')
-        message_timestamp = message_data.get('timestamp', datetime.utcnow().isoformat() + "Z")
-        history_data = data.get('conversationHistory', [])
-        
-        # Convert to Message objects
-        message = Message(
-            sender=message_sender,
-            text=message_text,
-            timestamp=message_timestamp
-        )
-        
-        history = []
-        for h in history_data:
-            if isinstance(h, dict):
-                history.append(Message(
-                    sender=h.get('sender', 'unknown'),
-                    text=h.get('text', ''),
-                    timestamp=h.get('timestamp', datetime.utcnow().isoformat() + "Z")
-                ))
+  try:
+    # Parse request body
+    data = await request.json()
     
-    except Exception as e:
-        return {"status": "error", "reply": f"Invalid request format: {str(e)}"}
+    # Extract fields with defaults
+    session_id = data.get('sessionId', 'unknown')
+    message_data = data.get('message', {})
+    message_text = message_data.get('text', '')
+    message_sender = message_data.get('sender', 'scammer')
+    
+    # Handle timestamp as int or string
+    message_timestamp = message_data.get('timestamp', datetime.utcnow().isoformat() + "Z")
+    if isinstance(message_timestamp, int):
+        # Convert Unix timestamp (milliseconds) to ISO string
+        message_timestamp = datetime.fromtimestamp(message_timestamp / 1000).isoformat() + "Z"
+    elif not isinstance(message_timestamp, str):
+        message_timestamp = datetime.utcnow().isoformat() + "Z"
+    
+    history_data = data.get('conversationHistory', [])
+    
+    # Convert to Message objects
+    message = Message(
+        sender=message_sender,
+        text=message_text,
+        timestamp=message_timestamp
+    )
+    
+    history = []
+    for h in history_data:
+        if isinstance(h, dict):
+            h_timestamp = h.get('timestamp', datetime.utcnow().isoformat() + "Z")
+            # Handle timestamp as int or string
+            if isinstance(h_timestamp, int):
+                h_timestamp = datetime.fromtimestamp(h_timestamp / 1000).isoformat() + "Z"
+            elif not isinstance(h_timestamp, str):
+                h_timestamp = datetime.utcnow().isoformat() + "Z"
+            
+            history.append(Message(
+                sender=h.get('sender', 'unknown'),
+                text=h.get('text', ''),
+                timestamp=h_timestamp
+            ))
+
+except Exception as e:
+    return {"status": "error", "reply": f"Invalid request format: {str(e)}"}
     
     # Initialize or get session
     if session_id not in sessions:
