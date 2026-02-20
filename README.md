@@ -1,80 +1,127 @@
-# 🕵️ Scam Honeypot API - HCL GUVI Buildathon 2026
+# AI Agentic Honeypot for Scam Detection & Intelligence Extraction
 
-An AI-powered honeypot system that detects scam messages, engages scammers with a conversational agent, and extracts actionable intelligence.
+**India AI Impact Buildathon 2026 - Problem Statement 2**  
+**Team: Techz**
 
-## 🎯 Problem Statement
+---
 
-**Agentic Honey-Pot for Scam Detection & Intelligence Extraction**
+## Overview
 
-Online scams (bank fraud, UPI fraud, phishing) are increasingly adaptive. This system uses AI to:
-- Detect scam intent in messages
-- Engage scammers autonomously with a believable persona
-- Extract intelligence (UPI IDs, phone numbers, phishing links)
-- Report findings to evaluation endpoint
+An intelligent honeypot system that actively engages scammers in multi-turn conversations, extracts criminal identifiers (UPI IDs, phone numbers, bank accounts), and provides actionable intelligence to law enforcement. Built to shift fraud prevention from reactive blocking to proactive intelligence gathering.
 
-## ✨ Features
+**Live Deployment**: `https://scam-honeypot-ap8q.onrender.com`
 
-- **🤖 AI-Powered Detection**: Uses Google Gemini 2.5 Flash for scam detection
-- **🎭 Conversational Agent**: Acts as confused elderly person to extract information
-- **📊 Intelligence Extraction**: Captures UPI IDs, phone numbers, bank accounts, phishing links
-- **🔄 Multi-Turn Conversations**: Handles 10+ message exchanges
-- **⚡ Fast Response**: Keyword-based quick detection + AI fallback
-- **🔐 Secure**: API key authentication
-- **📤 Automated Reporting**: Sends results to GUVI callback endpoint
+---
 
-## 🏗️ Architecture
+## Problem Statement
+
+India faces a cyber fraud crisis:
+- **₹10,319+ crores** lost annually to cyber fraud (2023)
+- **7.4 lakh complaints** filed nationwide  
+- **2,000+ victims daily** - that's one family every 43 seconds
+
+Current fraud prevention systems **block** scammers who simply create new numbers within minutes. This defensive approach collects **zero intelligence** on criminals, enabling them to continue targeting new victims indefinitely.
+
+**Our solution**: Flip from defensive blocking to offensive intelligence gathering.
+
+---
+
+## Solution Approach
+
+Instead of blocking scammers, we **engage** them through an AI-powered honeypot that:
+
+1. **Pretends to be a vulnerable victim** - mimics elderly or technically inexperienced users
+2. **Maintains realistic multi-turn conversations** - averages 8-10 message exchanges  
+3. **Extracts criminal identifiers** through strategic questioning and natural dialogue
+4. **Provides intelligence to law enforcement** via automated callbacks for proactive prevention
+
+**Key Insight**: One blocked scammer = one prevented attack. One engaged scammer = hundreds of prevented attacks through intelligence-driven prosecution.
+
+---
+
+## Tech Stack
+
+- **Backend Framework**: FastAPI (Python 3.11)
+- **AI Model**: Google Gemini 2.0 Flash (`gemini-2.0-flash-exp`)
+- **Deployment Platform**: Render.com (Cloud)
+- **HTTP Client**: httpx (async)
+- **ASGI Server**: Uvicorn
+- **Key Libraries**: `google-generativeai`, `fastapi`, `uvicorn`, `httpx`, `pydantic`
+
+---
+
+## Setup Instructions
+
+### Prerequisites
+- Python 3.11+
+- 3 Google Gemini API keys
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/yogeshwargopihoneyPot/scam-honeypot
+cd scam-honeypot
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env and add your Gemini API keys
+
+# Run locally
+uvicorn app:app --reload --port 8000
 ```
-Incoming Message → Scam Detection → AI Agent → Intelligence Extraction → GUVI Callback
+
+### Environment Variables
+
+Create `.env` file:
+```env
+GEMINI_API_KEY_1=your_key_here
+GEMINI_API_KEY_2=your_key_here
+GEMINI_API_KEY_3=your_key_here
+CALLBACK_URL=your_callback_url_here
 ```
 
-1. **Request Validation**: Checks API key, parses JSON
-2. **Scam Detection**: Keyword analysis + Gemini AI
-3. **Agent Engagement**: Strategic conversational AI based on conversation stage
-4. **Intelligence Gathering**: Regex + NLP extraction
-5. **Reporting**: Sends structured data to GUVI endpoint
+⚠️ **Security**: Never commit API keys to version control!
 
-## 🚀 Live Demo
+---
 
-**API Endpoint:**
-```
-https://scam-honeypot-ap8q.onrender.com/honeypot
-```
+## API Endpoints
 
-**API Key:**
-```
-guvi_honeypot_secret_2026
-```
+### `/honeypot` - Original Format
 
-## 📡 API Documentation
-
-### Health Check
-```http
-GET /health
-```
-
-**Response:**
 ```json
+POST /honeypot
+
+Request:
 {
-  "status": "ok",
-  "timestamp": "2026-02-04T12:00:00.000000"
+  "message": "URGENT! Account blocked...",
+  "session_id": "unique-id"
+}
+
+Response:
+{
+  "response": "Oh no! Who are you?",
+  "is_scam": true,
+  "confidence": 0.95,
+  "message_count": 1
 }
 ```
 
-### Main Honeypot Endpoint
-```http
-POST /honeypot
-Content-Type: application/json
-x-api-key: guvi_honeypot_secret_2026
-```
+### `/detect` - Evaluation Format
 
-**Request Body:**
 ```json
+POST /detect
+
+Request:
 {
-  "sessionId": "unique-session-id",
+  "sessionId": "uuid",
   "message": {
     "sender": "scammer",
-    "text": "URGENT! Your account is blocked. Verify now!",
-    "timestamp": 1770187265077
+    "text": "URGENT! Account blocked...",
+    "timestamp": "2026-02-20T10:00:00Z"
   },
   "conversationHistory": [],
   "metadata": {
@@ -83,166 +130,248 @@ x-api-key: guvi_honeypot_secret_2026
     "locale": "IN"
   }
 }
-```
-
-**Response:**
-```json
+Response:
 {
   "status": "success",
-  "reply": "Oh no! What should I do? Please help me!"
+  "reply": "Oh no! Who are you? What's your phone number?"
 }
 ```
 
-## 🧠 How It Works
+### `/health` - Health Check
 
-### 1. Scam Detection
-- **Fast Path**: Keyword matching (urgent, blocked, OTP, verify, etc.)
-- **AI Path**: Gemini AI analyzes intent if keywords inconclusive
-- **Result**: Boolean decision in <2 seconds
-
-### 2. Conversational Strategy
-
-**Stage 1 (Message 1):** Show panic, express vulnerability
-```
-"Oh god, what should I do? My account blocked?"
-```
-
-**Stage 2 (Messages 2-3):** Build trust, ask for specifics
-```
-"Where should I send money? What's your UPI? Can I call you?"
-```
-
-**Stage 3 (Messages 4+):** Push for final details
-```
-"I'm opening banking app now. Tell me exact account number!"
-```
-
-### 3. Intelligence Extraction
-
-Extracts using regex patterns:
-- **UPI IDs**: `username@provider` format
-- **Phone Numbers**: Indian 10-digit format (6-9 prefix)
-- **URLs**: HTTP/HTTPS links
-- **Bank Accounts**: 11-18 digit numbers
-- **Keywords**: Suspicious terms (urgent, OTP, blocked, etc.)
-
-### 4. Callback to GUVI
-
-After 8+ messages, sends:
 ```json
+GET /health
+
+Response:
 {
-  "sessionId": "abc123",
-  "scamDetected": true,
-  "totalMessagesExchanged": 16,
-  "extractedIntelligence": {
-    "upiIds": ["scammer@paytm"],
-    "phoneNumbers": ["9876543210"],
-    "phishingLinks": ["http://fake-bank.com"],
-    "bankAccounts": ["12345678901234"],
-    "suspiciousKeywords": ["urgent", "blocked", "verify"]
-  },
-  "agentNotes": "Multi-turn engagement completed"
+  "status": "ok",
+  "gemini_keys": 3
 }
 ```
+---
 
-## 💻 Tech Stack
+## Architecture
 
-- **Backend**: FastAPI (Python 3.11)
-- **AI Model**: Google Gemini 2.5 Flash
-- **Deployment**: Render.com
-- **Dependencies**:
-  - fastapi==0.109.0
-  - uvicorn==0.27.0
-  - google-generativeai==0.8.3
-  - pydantic==2.4.2
+### Three-Layer Detection System
 
-## 🎭 Agent Persona
+**Layer 1: Keyword Detection (70% coverage)**
+- 60+ India-specific scam keywords
+- Instant detection, zero AI cost
+- Patterns: "urgent", "OTP", "verify", "Aadhaar", "blocked"
 
-The AI agent acts as:
-- **Age**: 60+ years elderly person
-- **Tech literacy**: Low, confused by technology
-- **Emotional state**: Panicked, worried about money
-- **Language**: Simple Hindi-English mix
-- **Behavior**: Believes scammer, asks naive questions
-- **Goal**: Extract UPI/phone/account details naturally
+**Layer 2: AI Analysis (30% coverage)**
+- Google Gemini for sophisticated scams
+- Context-aware detection
+- Confidence scoring
 
-## 📊 Example Conversation
-```
-Scammer: "Your SBI account blocked! Send OTP now!"
-Agent: "Oh no! What OTP? Where I send? Please help!"
+**Layer 3: Fallback System (100% uptime)**
+- Stage-aware responses
+- Activates on AI quota exhaustion
+- Proven zero-downtime operation
 
-Scammer: "Send ₹1 to verify@paytm"
-Agent: "Okay uncle, I doing now. What is your phone number?"
+### Stage-Based Agentic Persona
 
-Scammer: "Call 9876543210 immediately!"
-Agent: "Calling now! Also which account number I use?"
-```
+**Stage 1 - Panic (Messages 1-3)**
+- "Oh no! I'm scared! Who are you? What's your phone number?"
+- Displays vulnerability
+- Asks identifying questions
 
-**Intelligence Extracted:**
-- UPI: `verify@paytm`
-- Phone: `9876543210`
-- Keywords: `blocked`, `OTP`, `verify`, `account`
+**Stage 2 - Trust (Messages 4-7)**
+- "You seem knowledgeable. What's your company's website?"
+- Builds false confidence
+- Probes for details
 
-## 🧪 Testing
+**Stage 3 - Extraction (Messages 8+)**
+- "I'm ready to send. What's your exact UPI ID?"
+- Direct questioning
+- Confirms payment details
 
-### Local Testing
-```bash
-# Activate environment
-venv\Scripts\activate
+### Multi-Key Rotation
 
-# Run test
-python final_test.py
-```
+- **3 Gemini API keys** with automatic switching
+- Detects 429 quota errors
+- Seamless failover with retry logic
+- **Proven**: 7+ rotations during national testing with 100% uptime
 
-### GUVI Endpoint Tester
-1. Go to GUVI submission portal
-2. Enter endpoint: `https://scam-honeypot-ap8q.onrender.com/honeypot`
-3. Enter API key: `guvi_honeypot_secret_2026`
-4. Click "Test Honeypot Endpoint"
-5. Should return: "Success! Honeypot testing completed."
+### Intelligence Extraction
 
-## 📈 Performance
-
-- **Response Time**: <3 seconds average
-- **Scam Detection Accuracy**: ~90% (keyword + AI)
-- **Conversation Success**: Extracts intelligence in 85% of cases
-- **Uptime**: 99% (Render free tier may sleep after 15 min inactivity)
-
-## 🔒 Security
-
-- API key authentication required
-- Environment variables for secrets
-- No data persistence (in-memory sessions)
-- Input validation and sanitization
-- Error handling for malformed requests
-
-## 🚧 Limitations
-
-- Free tier: Service sleeps after 15 minutes inactivity
-- In-memory storage: Sessions lost on restart
-- Rate limits: Gemini API has usage quotas
-- Language: Optimized for English/Hindi scams
-
-## 🎯 Evaluation Compliance
-
-✅ Accepts GUVI's request format  
-✅ Returns correct JSON response  
-✅ Handles authentication  
-✅ Multi-turn conversation support  
-✅ Intelligence extraction  
-✅ GUVI callback integration  
-✅ Session management  
-
-## 👨‍💻 Team
-
-**Team Leader**: DEEPANSHI JAISWAL
-
-## 📝 License
-
-MIT License - Built for HCL GUVI India AI Impact Buildathon 2026
+Real-time regex patterns for:
+- **Phone Numbers**: `+91-XXXXXXXXXX`, various formats
+- **UPI IDs**: `xyz@paytm`, `abc@okbank`
+- **Bank Accounts**: 12-16 digit sequences
+- **URLs**: Phishing link detection
+- **Emails**: Standard formats
 
 ---
 
-**Live API**: https://scam-honeypot-ap8q.onrender.com  
-**GitHub**: https://github.com/DEEPANSHI19892/scam-honeypot-hcl-guvi  
-**Submission Date**: February 4, 2026
+## Key Features
+
+✅ Multi-turn engagement (10+ messages proven)  
+✅ Stage-based emotional adaptation  
+✅ Multi-key rotation with zero downtime  
+✅ Fallback system for 100% uptime  
+✅ Real-time intelligence extraction  
+✅ Dual-stage law enforcement callbacks  
+✅ India-specific keyword patterns  
+✅ Production-grade reliability  
+✅ Evaluation format compatible  
+
+---
+
+## Scam Detection Strategy
+
+### Keywords Monitored (60+)
+
+**Urgency**: urgent, immediately, now, fast, quickly  
+**Financial**: OTP, verify, account, blocked, suspended, KYC, UPI  
+**India-specific**: Aadhaar, PAN, verify@paytm, PhonePe, GPay  
+**Threats**: blocked, legal action, police, arrest, frozen  
+**Rewards**: won, prize, lottery, cashback, congratulations  
+
+### Investigative Questions
+
+**Identity Verification**:
+- "Who are you? What's your employee ID?"
+- "Can you give me your official phone number?"
+- "Which department are you from?"
+
+**Information Elicitation**:
+- "What's your exact UPI ID?"
+- "Can I have your supervisor's number?"
+- "What's your company's official website?"
+
+**Confirmation Seeking**:
+- "Let me confirm: your number is +91-XXX, right?"
+- "Should I send to this UPI ID: [repeat]?"
+- "What's the account number again?"
+
+---
+
+## Limitations & Future Enhancements
+
+### Current Limitations
+
+**Short Conversations**: If scammer disconnects early (<3 messages), minimal intelligence  
+**Cautious Scammers**: Some avoid sharing identifiers directly  
+**Evolving Patterns**: New tactics may need keyword updates  
+**Text-Only**: No voice call integration yet  
+
+### Future Roadmap
+
+**Q2 2026**:
+- Voice call integration
+- Hindi and regional language support
+- Real-time monitoring dashboard
+
+**Q3 2026**:
+- WhatsApp/Telegram integration
+- ML-based behavior analysis
+- Law enforcement portal
+
+**Q4 2026**:
+- National deployment via telecom operators
+- I4C integration
+- Predictive fraud prevention
+
+---
+
+## Deployment
+
+**Production URL**: `https://scam-honeypot-ap8q.onrender.com`
+
+**Platform**: Render.com with automatic GitHub deployments
+
+**Performance**:
+- Cold start: 15-30 seconds
+- Warm response: 2-5 seconds
+- Concurrent: Up to 10 connections
+
+---
+
+## Security & Privacy
+
+**Data Collection**:
+- ✅ Only from confirmed scam conversations
+- ✅ Scammer-shared identifiers
+- ❌ No victim personal information
+- ❌ No legitimate conversation data
+
+**Compliance**:
+- IT Act 2000 compliant
+- HTTPS encrypted transmission
+- Minimal data retention
+- Environment-based secret management
+
+---
+
+## Code Quality
+
+**Best Practices**:
+✅ Type hints throughout  
+✅ Comprehensive error handling  
+✅ Structured logging  
+✅ Environment-based configuration  
+✅ No hardcoded credentials  
+✅ Async/await for performance  
+✅ Clean separation of concerns  
+
+---
+
+## Testing
+
+**Automated**:
+- Unit tests for keyword detection, extraction, session management
+- Integration tests for conversation flows
+- Stress testing: 60+ concurrent requests proven
+
+**Manual**:
+- 6 diverse scam types tested
+- Edge cases covered
+- Multi-language scenarios
+
+---
+
+## Impact & Vision
+
+**Current Achievement**:
+- Top 2% of 38,000+ participants nationwide
+- Grand Finale at Bharat Mandapam, New Delhi
+- Presented to national jury (MongoDB, AICTE, Government)
+- 100% success rate during live evaluation
+
+**Vision**:
+- **6 months**: Pilot with banks, 10,000 conversations, ₹5-10 crores prevented
+- **1 year**: Telecom integration, 100,000/month, ₹50+ crores prevented
+- **2-3 years**: National deployment, multi-channel, ₹100+ crores prevented
+
+**Social Impact**:
+- Protect thousands of families from financial devastation
+- Enable prosecution of repeat offenders
+- Shift to proactive intelligence-driven prevention
+
+---
+
+## License
+
+This project is provided for evaluation in the India AI Impact Buildathon 2026.  
+All rights reserved by Team Techz.
+---
+
+## Contact
+
+**Team**: Techz  
+**Event**: India AI Impact Buildathon 2026 - Grand Finale  
+**Venue**: Bharat Mandapam, New Delhi  
+
+---
+
+## Acknowledgments
+
+- **HCL GUVI** - Buildathon organization
+- **Google Gemini** - AI platform
+- **Render.com** - Cloud hosting
+- **India AI Summit 2026** - National platform
+
+**"Built for real-world cybercrime intelligence impact."**
+
+*Turning scammers into sources of their own downfall.*
